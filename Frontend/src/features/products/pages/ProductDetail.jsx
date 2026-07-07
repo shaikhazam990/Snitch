@@ -8,17 +8,15 @@ const ProductDetail = () => {
     const [ product, setProduct ] = useState(null);
     const [ selectedImage, setSelectedImage ] = useState(0);
     const [ selectedAttributes, setSelectedAttributes ] = useState({});
+    const [ isAdding, setIsAdding ] = useState(false);
+    const [ isBuying, setIsBuying ] = useState(false);
     const navigate = useNavigate();
     const { handleGetProductById } = useProduct();
-    const { handleAddItem } = useCart()
-
-
-
+    const { handleAddItem, handleGetCart } = useCart()
 
     async function fetchProductDetails() {
         try {
             const data = await handleGetProductById(productId);
-            // Handle both cases depending on how API is structured
             setProduct(data?.product || data);
         } catch (error) {
             console.error("Failed to fetch product details", error);
@@ -42,14 +40,9 @@ const ProductDetail = () => {
             const vKeys = Object.keys(v.attributes);
             const sKeys = Object.keys(selectedAttributes);
             const isMatch = vKeys.every(k => v.attributes[ k ] === selectedAttributes[ k ]);
-            // If they don't have exactly the same keys, they shouldn't perfectly match, 
-            // but we might only care about matching what's available.
             return vKeys.length === sKeys.length && isMatch;
         });
     }, [ product, selectedAttributes ]);
-
-
-    console.log({ product, activeVariant })
 
     const availableAttributes = useMemo(() => {
         if (!product?.variants) return {};
@@ -75,7 +68,6 @@ const ProductDetail = () => {
     const handleAttributeChange = (attrName, value) => {
         const newAttrs = { ...selectedAttributes, [ attrName ]: value };
 
-        // Find if an exact match exists for this combination
         const exactMatch = product.variants.find(v => {
             const vAttrs = v.attributes || {};
             return Object.keys(newAttrs).every(k => newAttrs[ k ] === vAttrs[ k ]) &&
@@ -85,7 +77,6 @@ const ProductDetail = () => {
         if (exactMatch) {
             setSelectedAttributes(exactMatch.attributes);
         } else {
-            // Find any variant that has this newly selected attribute to fallback nicely
             const fallbackVariant = product.variants.find(v => v.attributes && v.attributes[ attrName ] === value);
             if (fallbackVariant) {
                 setSelectedAttributes(fallbackVariant.attributes);
@@ -94,6 +85,39 @@ const ProductDetail = () => {
             }
         }
     };
+
+    const handleAddToCart = async () => {
+        if (!activeVariant) return
+        try {
+            setIsAdding(true)
+            await handleAddItem({
+                productId: product._id,
+                variantId: activeVariant._id
+            })
+            await handleGetCart()
+        } catch (error) {
+            alert(error?.response?.data?.message || "Failed to add item to cart")
+        } finally {
+            setIsAdding(false)
+        }
+    }
+
+    const handleBuyNow = async () => {
+        if (!activeVariant) return
+        try {
+            setIsBuying(true)
+            await handleAddItem({
+                productId: product._id,
+                variantId: activeVariant._id
+            })
+            await handleGetCart()
+            navigate('/cart')
+        } catch (error) {
+            alert(error?.response?.data?.message || "Failed to process order")
+        } finally {
+            setIsBuying(false)
+        }
+    }
 
     if (!product) {
         return (
@@ -105,9 +129,6 @@ const ProductDetail = () => {
         );
     }
 
-    console.log(product)
-
-    // Fallbacks
     const displayImages = (activeVariant?.images && activeVariant.images.length > 0)
         ? activeVariant.images
         : (product.images && product.images.length > 0 ? product.images : [ { url: '/snitch_editorial_warm.png' } ]);
@@ -118,7 +139,6 @@ const ProductDetail = () => {
 
     return (
         <>
-            {/* Google Fonts */}
             <link
                 href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap"
                 rel="stylesheet"
@@ -132,10 +152,8 @@ const ProductDetail = () => {
                 <div className="max-w-7xl mx-auto px-8 lg:px-16 xl:px-24 pt-12 lg:pt-20">
                     <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 items-start">
 
-                        {/* ── LEFT: Image Gallery ── */}
                         <div className="w-full lg:w-[70%] flex flex-col-reverse md:flex-row gap-4 lg:gap-6">
 
-                            {/* Thumbnails (Vertical on Desktop, Horizontal on Mobile) */}
                             {displayImages.length > 1 && (
                                 <div className="flex flex-row md:flex-col gap-4 overflow-x-auto md:overflow-y-auto pb-2 md:pb-0 scrollbar-hide w-full md:w-20 lg:w-24 flex-shrink-0 md:max-h-[calc(100vh-200px)]">
                                     {displayImages.map((img, idx) => (
@@ -146,20 +164,17 @@ const ProductDetail = () => {
                                             style={{ backgroundColor: '#f5f3f0', '--tw-ring-offset-color': '#fbf9f6' }}
                                         >
                                             <img
-
                                                 src={img.url} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
                                         </button>
                                     ))}
                                 </div>
                             )}
 
-                            {/* Main Image */}
                             <div className="relative w-full aspect-4/5 overflow-hidden group" style={{ backgroundColor: '#f5f3f0' }}>
                                 <img
                                     src={displayImages[ selectedImage ]?.url || displayImages[ 0 ].url}
                                     alt={product.title}
                                     className="w-full h-full object-cover transition-opacity duration-500"
-
                                 />
                                 {displayImages.length > 1 && (
                                     <>
@@ -188,7 +203,6 @@ const ProductDetail = () => {
                             </div>
                         </div>
 
-                        {/* ── RIGHT: Product Details ── */}
                         <div className="w-full lg:w-[30%] lg:sticky lg:top-24 flex flex-col pt-4">
 
                             <h1
@@ -209,7 +223,6 @@ const ProductDetail = () => {
 
                             <div className="h-px w-full mb-8" style={{ backgroundColor: '#e4e2df' }} />
 
-                            {/* Options/Variants */}
                             {Object.entries(availableAttributes).map(([ attrName, values ]) => (
                                 <div key={attrName} className="mb-6">
                                     <h3 className="text-[10px] uppercase tracking-[0.24em] font-medium mb-3" style={{ color: '#C9A96E' }}>
@@ -233,7 +246,6 @@ const ProductDetail = () => {
                                 </div>
                             ))}
 
-                            {/* Stock Information */}
                             {activeVariant && activeVariant.stock !== undefined && (
                                 <div className="mb-6">
                                     <span className={`text-[10px] uppercase tracking-[0.2em] font-medium ${activeVariant.stock > 0 ? 'text-green-700' : 'text-red-700'}`}>
@@ -251,10 +263,10 @@ const ProductDetail = () => {
                                 </p>
                             </div>
 
-                            {/* Actions */}
                             <div className="flex flex-col gap-4 mt-auto">
                                 <button
-                                    className="w-full py-4 text-[11px] uppercase tracking-[0.25em] font-medium transition-all duration-300"
+                                    disabled={!activeVariant || isAdding}
+                                    className="w-full py-4 text-[11px] uppercase tracking-[0.25em] font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                     style={{
                                         backgroundColor: '#1b1c1a',
                                         color: '#fbf9f6',
@@ -268,18 +280,14 @@ const ProductDetail = () => {
                                         e.currentTarget.style.backgroundColor = '#1b1c1a';
                                         e.currentTarget.style.color = '#fbf9f6';
                                     }}
-                                    onClick={() => {
-                                        handleAddItem({
-                                            productId: product._id,
-                                            variantId: activeVariant._id
-                                        })
-                                    }}
+                                    onClick={handleAddToCart}
                                 >
-                                    Add to Cart
+                                    {isAdding ? 'Adding...' : 'Add to Cart'}
                                 </button>
 
                                 <button
-                                    className="w-full py-4 text-[11px] uppercase tracking-[0.25em] font-medium transition-all duration-300 border"
+                                    disabled={!activeVariant || isBuying}
+                                    className="w-full py-4 text-[11px] uppercase tracking-[0.25em] font-medium transition-all duration-300 border disabled:opacity-50 disabled:cursor-not-allowed"
                                     style={{
                                         backgroundColor: 'transparent',
                                         borderColor: '#d0c5b5',
@@ -292,12 +300,12 @@ const ProductDetail = () => {
                                     onMouseLeave={e => {
                                         e.currentTarget.style.borderColor = '#d0c5b5';
                                     }}
+                                    onClick={handleBuyNow}
                                 >
-                                    Buy Now
+                                    {isBuying ? 'Processing...' : 'Buy Now'}
                                 </button>
                             </div>
 
-                            {/* Extra elegant details */}
                             <div className="mt-14 space-y-4 text-[10px] uppercase tracking-[0.1em]" style={{ color: '#B5ADA3' }}>
                                 <div className="flex justify-between border-b pb-3" style={{ borderColor: '#e4e2df' }}>
                                     <span>Shipping</span>

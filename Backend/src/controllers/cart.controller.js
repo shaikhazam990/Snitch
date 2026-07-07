@@ -142,47 +142,53 @@ export const incrementCartItemQuantity = async (req, res) => {
 }
 
 export const createOrderController = async (req, res) => {
+    try {
+        const cart = await getCartDetails(req.user._id)
 
+        if (!cart) {
+            return res.status(400).json({
+                message: "Cart is empty",
+                success: false
+            })
+        }
 
-    const cart = await getCartDetails(req.user._id)
+        const order = await createOrder({ amount: cart.totalPrice, currency: cart.currency })
 
-    if (!cart) {
-        return res.status(400).json({
-            message: "Cart is empty",
+        const payment = await paymentModel.create({
+            user: req.user._id,
+            razorpay: {
+                orderId: order.id,
+            },
+            price: {
+                amount: cart.totalPrice,
+                currency: cart.currency
+            },
+            orderItems: cart.items.map(item => ({
+                title: item.product.title,
+                productId: item.product._id,
+                variantId: item.variant,
+                quantity: item.quantity,
+                images: item.product.variants.images || item.product.images,
+                description: item.product.description,
+                price: {
+                    amount: item.product.variants.price.amount || item.product.price.amount,
+                    currency: item.product.variants.price.currency || item.product.price.currency
+                }
+            }))
+        })
+
+        return res.status(200).json({
+            message: "Order created successfully",
+            success: true,
+            order
+        })
+    } catch (error) {
+        console.log(JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
+        return res.status(500).json({
+            message: error?.error?.description || error.message || "Failed to create order",
             success: false
         })
     }
-
-    const order = await createOrder({ amount: cart.totalPrice, currency: cart.currency })
-
-    const payment = await paymentModel.create({
-        user: req.user._id,
-        razorpay: {
-            orderId: order.id,
-        },
-        price: {
-            amount: cart.totalPrice,
-            currency: cart.currency
-        },
-        orderItems: cart.items.map(item => ({
-            title: item.product.title,
-            productId: item.product._id,
-            variantId: item.variant,
-            quantity: item.quantity,
-            images: item.product.variants.images || item.product.images,
-            description: item.product.description,
-            price: {
-                amount: item.product.variants.price.amount || item.product.price.amount,
-                currency: item.product.variants.price.currency || item.product.price.currency
-            }
-        }))
-    })
-
-    return res.status(200).json({
-        message: "Order created successfully",
-        success: true,
-        order
-    })
 }
 
 export const verifyOrderController = async (req, res) => {
@@ -228,6 +234,73 @@ export const verifyOrderController = async (req, res) => {
 
     return res.status(200).json({
         message: "Payment verified successfully",
+        success: true
+    })
+}
+
+export const decrementCartItemQuantity = async (req, res) => {
+    const { productId, variantId } = req.params
+
+    const cart = await cartModel.findOne({ user: req.user._id })
+
+    if (!cart) {
+        return res.status(404).json({
+            message: "Cart not found",
+            success: false
+        })
+    }
+
+    const item = cart.items.find(item => item.product.toString() === productId && item.variant?.toString() === variantId)
+
+    if (!item) {
+        return res.status(404).json({
+            message: "Item not found in cart",
+            success: false
+        })
+    }
+
+    if (item.quantity <= 1) {
+        await cartModel.findOneAndUpdate(
+            { user: req.user._id },
+            { $pull: { items: { product: productId, variant: variantId } } }
+        )
+
+        return res.status(200).json({
+            message: "Item removed from cart",
+            success: true
+        })
+    }
+
+    await cartModel.findOneAndUpdate(
+        { user: req.user._id, "items.product": productId, "items.variant": variantId },
+        { $inc: { "items.$.quantity": -1 } },
+        { new: true }
+    )
+
+    return res.status(200).json({
+        message: "Cart item quantity decremented successfully",
+        success: true
+    })
+}
+
+export const removeCartItem = async (req, res) => {
+    const { productId, variantId } = req.params
+
+    const cart = await cartModel.findOneAndUpdate(
+        { user: req.user._id },
+        { $pull: { items: { product: productId, variant: variantId } } },
+        { new: true }
+    )
+
+    if (!cart) {
+        return res.status(404).json({
+            message: "Cart not found",
+            success: false
+        })
+    }
+
+    return res.status(200).json({
+        message: "Item removed from cart successfully",
         success: true
     })
 }
