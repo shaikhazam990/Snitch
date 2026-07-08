@@ -29,7 +29,13 @@ if (!process.env.RAZORPAY_KEY_ID) {
 if (!process.env.RAZORPAY_KEY_SECRET) {
     throw new Error("RAZORPAY_KEY_SECRET is not defined in environment variables")
 }
+if (!process.env.FRONTEND_URL) {
+    throw new Error("FRONTEND_URL is not defined in environment variables")
+}
 
+if (!process.env.GOOGLE_CALLBACK_URL) {
+    throw new Error("GOOGLE_CALLBACK_URL is not defined in environment variables")
+}
 export const config = {
     MONGO_URI: process.env.MONGO_URI,
     JWT_SECRET: process.env.JWT_SECRET,
@@ -38,5 +44,7 @@ export const config = {
     NODE_ENV: process.env.NODE_ENV || "development",
     IMAGEKIT_PRIVATE_KEY: process.env.IMAGEKIT_PRIVATE_KEY,
     RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
-    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET
+    RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET,
+    FRONTEND_URL: process.env.FRONTEND_URL,
+    GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL
 }

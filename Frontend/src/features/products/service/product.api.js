@@ -1,9 +1,6 @@
-import axios from "axios";
+import { createApiInstance } from "../../../shared/api/axiosInstance"
 
-const productApiInstance = axios.create({
-    baseURL: "/api/products",
-    withCredentials: true,
-})
+const productApiInstance = createApiInstance("/api/products")
 
 export async function createProduct(formData) {
     const response = await productApiInstance.post("/", formData)

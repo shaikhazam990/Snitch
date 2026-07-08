@@ -1,10 +1,7 @@
-import axios from "axios";
 
-const authApiInstance = axios.create({
-    baseURL: "/api/auth",
-    withCredentials: true,
-})
+import { createApiInstance } from "../../../shared/api/axiosInstance"
 
+const authApiInstance = createApiInstance("/api/auth")
 
 export async function register({ email, contact, password, fullname, isSeller }) {
 
